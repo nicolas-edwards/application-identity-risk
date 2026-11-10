@@ -1,0 +1,22 @@
+<!doctype html>
+<meta charset="utf-8">
+<pre id="out">Loading DuckDB…</pre>
+<script type="module">
+import * as duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@2.0.0/+esm';
+
+// From the instantiation guide
+const bundle = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
+const workerUrl = URL.createObjectURL(
+  new Blob([`importScripts("${bundle.mainWorker}");`], {type: 'text/javascript'}));
+const db = new duckdb.AsyncDuckDB(new duckdb.ConsoleLogger(), new Worker(workerUrl));
+await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+
+// Point the name 'labels.csv' at the file served by the local server
+const url = new URL('../data/raw/labels.csv', location.href).href;
+await db.registerFileURL('labels.csv', url, duckdb.DuckDBDataProtocol.HTTP, false);
+
+const conn = await db.connect();
+const result = await conn.query(
+  `SELECT is_fraud, COUNT(*) AS n FROM 'labels.csv' GROUP BY is_fraud`);
+document.getElementById('out').textContent = result.toString();
+</script>

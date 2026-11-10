@@ -1,0 +1,62 @@
+random_seed: 45
+
+paths:
+  reference_identities: data/reference/reference_identities.csv
+  runs_dir: data/runs
+
+application_window:
+  start_date: "2026-04-01"
+  end_date: "2026-11-01"
+
+# Every application belongs to a group. Each profile is a recipe for one kind of group,
+# realized groups_to_create times. Fraud and legitimate profiles share one mechanism:
+#   applications_per_group: applications produced; each uses a distinct identity.
+#                           A number, or [min, max] drawn uniformly per group.
+#   pool_sizes:             attributes the group's applications share, and how many distinct
+#                           values they share. Attributes left out stay each applicant's own.
+#   start_date + duration_days: optional; defaults to the whole application window.
+group_profiles:
+  - profile: individual
+    label: legitimate
+    groups_to_create: 8800
+    applications_per_group: 1
+
+  - profile: household
+    label: legitimate
+    groups_to_create: 400
+    applications_per_group: [2, 4]
+    pool_sizes:
+      address: 1
+
+  - profile: ring
+    label: fraud
+    group_id: ring_1
+    groups_to_create: 1
+    applications_per_group: 12
+    start_date: "2026-05-01"
+    duration_days: 2
+    pool_sizes:
+      address: 2
+      phone: 2
+
+  - profile: ring
+    label: fraud
+    group_id: ring_2
+    groups_to_create: 1
+    applications_per_group: 6
+    start_date: "2026-04-15"
+    duration_days: 40
+    pool_sizes:
+      address: 5
+      phone: 4
+
+  - profile: ring
+    label: fraud
+    group_id: ring_3
+    groups_to_create: 1
+    applications_per_group: 30
+    start_date: "2026-06-24"
+    duration_days: 10
+    pool_sizes:
+      address: 10
+      phone: 3
