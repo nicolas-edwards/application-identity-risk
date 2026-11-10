@@ -6,27 +6,72 @@ It models first-line identity risk screening when a customer applies for an acco
 
 ## How to run
 
-1. Build the reference identities (one-time setup):
-   `uv run python scripts/build_ref_identities.py` → `data/ref/reference_identities.csv`
-2. Generate applications and labels (repeatable, driven by `config/generator.yaml`):
-   `uv run python -m application_identity_risk.generation.generate_fraud_data` → `data/raw/`
+1. Build the reference identities (one-time setup, driven by `config/reference_identities.yaml`):
+   `uv run python scripts/build_reference_identities.py` → `data/reference/reference_identities.csv`
+2. Generate applications and labels (repeatable, driven by `config/applications.yaml`):
+   `uv run python -m application_identity_risk.generation.generate_applications` → `data/runs/latest/`
+
+   To keep a run instead of replacing `latest`, name it: `--run households_800` → `data/runs/households_800/`.
 
 ## Data
 
-Every data source has a parametrizable synthetic generator. Fraud is designed as fraud rings: each ring shares a small pool of addresses and phones across its applications, within a defined time window. The overall fraud rate is an outcome of the ring definitions, and the generator reports it.
+### Reference identities
 
-- **Applications**: `{application_datetime, account_id, identity_id, name, address, phone, cookie, ip}`
-- **Labels**: `{account_id, is_fraud, fraud_ring_id}`, written separately from applications. Labels are treated as complete and available for this version; label delay is out of scope.
+A pool of synthetic people: `identity_id`, name, full address and phone. Identities are independent of one another; any sharing between applications is introduced by the application generator.
 
-Planned feature sources:
+### Groups
+
+Every application belongs to a group. A group is a set of applications that share some attribute values, and fraud and legitimate groups are produced by the same mechanism.
+
+`config/applications.yaml` lists **group profiles**. Each profile is a recipe for one kind of group:
+
+- `label`: legitimate or fraud.
+- `groups_to_create`: how many groups the profile produces.
+- `applications_per_group`: applications per group, each using a distinct identity (a number, or a `[min, max]` range).
+- `pool_sizes`: which attributes the group's applications share, and how many distinct values they share. The group's first members supply the shared values; the other members draw from them. Attributes left out stay each applicant's own.
+- `start_date` + `duration_days` (optional): the group's time window. The default is the whole application window.
+
+V1 profiles:
+
+| Profile | Label | Applications per group | Shares |
+|---|---|---|---|
+| individual | legitimate | 1 | nothing |
+| household | legitimate | 2–4 | one address |
+| ring | fraud | 6–30 | a few addresses and phones, within a short window |
+
+Legitimate and fraud counts, and the fraud rate, are outcomes of the profiles. The generator reports them.
+
+### Outputs
+
+Each run writes a self-contained folder, `data/runs/<run>/`:
+
+- `applications.csv`: `application_datetime, account_id, identity_id, first_name, middle_name, last_name, address, city, state, zip_code, phone`
+- `labels.csv`: `account_id, is_fraud, group_profile, group_id`, written separately from applications so ground truth cannot leak into features. Labels are treated as complete and available for this version; label delay is out of scope.
+- `applications.yaml`: a snapshot of the config that produced the run.
+
+`data/runs/index.json` lists the runs.
+
+The generator stops before writing if the config is invalid, if group IDs repeat, or if there are not enough reference identities. After generating, it reports applications by profile, the fraud rate, and the share of legitimate and fraud applications that share an address with another application.
+
+### Planned feature sources
 
 - `name_address`: `{observed_at, name, address}`
 - `cookie`: `{observed_at, cookie_id, ip?, address?}`
 - `ip_attributes`: `{observed_at, ip, asn, geo_location}`
 
+Cookie and IP will be added as pooled attributes, so that every value has an owner: a person, a household, a device, or a shared network such as a mobile carrier.
+
+## File format conventions
+
+Each file's format follows from who writes it and who reads it:
+
+- **YAML** for files people write: configuration (`config/*.yaml`).
+- **JSON** for outputs that code writes and that are not row-level: reports, run statistics, join statistics.
+- **CSV** for row-level data: reference identities, applications, labels, features.
+
 ## Features
 
-All sources are combined into linkage indicators (e.g. how many earlier applications share this address or phone). Linkage counts are point-in-time: each application only sees applications that came before it.
+All sources are combined into linkage indicators (for example, how many earlier applications share this full address or phone). Linkage counts are point-in-time: each application only sees applications that came before it.
 
 Joins are monitored on input and output to verify that no rows are lost or duplicated.
 
@@ -44,6 +89,14 @@ A visual shows how each feature sorts the population into higher and lower fraud
 
 ## Status and deliberate v1 omissions
 
-Implemented: reference identity generation. In progress: application/label generator (applications and phones/addresses only; cookie and IP come next).
+Implemented: reference identities; group-based application and label generation (address and phone).
 
-Out of scope for v1: noise and typos in identities, households and other legitimate shared attributes, synthetic identities, rolling-window features, label delay. Precision-based results depend on the fraud rate, which is reported alongside them.
+Next: a run report, cookie and IP attributes, linkage features, then the model and evaluation.
+
+Out of scope for v1: noise and typos in identities, roommates and repeat applicants, synthetic identities, rolling-window features, label delay. Precision-based results depend on the fraud rate, which is reported alongside them.
+
+### Known limitations, slated for the next round
+
+- **Random draws are shared across groups.** All groups draw from one seeded random stream, in config order. A run is fully reproducible, but changing one group profile (for example, adding households) shifts the random values every later group receives, including which identities, pool picks and timestamps it gets. Next round: give each group its own random stream derived from the seed and its `group_id`, and allocate identities per group, so that changing one profile leaves the others unchanged.
+- **Household members apply independently in time.** Their application times are spread over the whole window rather than clustered.
+- **Geography is not coherent.** Zip codes and area codes do not match states. This needs fixing before any IP-to-address feature.

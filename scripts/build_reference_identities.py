@@ -119,15 +119,12 @@ state_to_abbreviation = {
 }
 
 
-num_identites = 15000
-
-random.seed(42)
 
 # Open config file 
 with open("config/reference_identities.yaml") as f:
     config = yaml.safe_load(f)
     random.seed(config["random_seed"])
-    num_identities = config["num_identites"]
+    num_identities = config["num_identities"]
     
 
 
