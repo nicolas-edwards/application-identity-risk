@@ -1,0 +1,10 @@
+city,state,zip_prefix,area_code,latitude,longitude,weight
+San Francisco,CA,941,415,37.7749,-122.4194,1
+San Diego,CA,921,619,32.7157,-117.1611,1
+Berkeley,CA,947,510,37.8716,-122.2727,1
+Washington,DC,200,202,38.9072,-77.0369,1
+Seattle,WA,981,206,47.6062,-122.3321,1
+Chicago,IL,606,312,41.8781,-87.6298,1
+Austin,TX,787,512,30.2672,-97.7431,1
+Boston,MA,021,617,42.3601,-71.0589,1
+Denver,CO,802,303,39.7392,-104.9903,1

@@ -1,8 +1,8 @@
 random_seed: 45
 
 paths:
-  reference_identities: data/reference/reference_identities.csv
-  runs_dir: data/runs
+  identities: data/identities/identities.csv
+  scenario_dir: data/scenarios
 
 application_window:
   start_date: "2026-04-01"
